@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">GB Emulator</string>
+    <string name="open_rom">ROMを開く</string>
+</resources>

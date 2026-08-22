@@ -1,0 +1,76 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Restore common signing key
+        run: ./ci/restore-signing-key.sh
+
+      - name: Unit test and release build
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease --stacktrace
+
+      - name: Verify and stage artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/^VERSION_NAME=//p' version.properties)
+          VERSION_CODE=$(sed -n 's/^VERSION_CODE=//p' version.properties)
+          mkdir -p dist
+          APK_IN=app/build/outputs/apk/release/app-release.apk
+          APK_OUT="dist/gbEmulater-v${VERSION_NAME}-release.apk"
+          cp "$APK_IN" "$APK_OUT"
+
+          BUILD_TOOLS="${ANDROID_SDK_ROOT}/build-tools/36.0.0"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK_OUT" | tee dist/signature.txt
+          sha256sum "$APK_OUT" | tee dist/sha256.txt
+
+          cat > dist/build-metadata.txt <<META
+          repository=${GITHUB_REPOSITORY}
+          branch=${GITHUB_REF_NAME}
+          commit=${GITHUB_SHA}
+          versionName=${VERSION_NAME}
+          versionCode=${VERSION_CODE}
+          ciRunId=${GITHUB_RUN_ID}
+          ciJob=${GITHUB_JOB}
+          tests=:app:testDebugUnitTest success
+          build=:app:assembleRelease success
+          META
+
+      - name: Upload release APK and verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gbEmulater-v0.1.0-release
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
