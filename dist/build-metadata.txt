@@ -1,9 +1,9 @@
 repository=skt-pj/gbEmulater
 branch=main
-commit=5630fb805b64e4c07773e40e07375e686365d9fe
+commit=a9ec6d9abae885cd3642f26d02470604374fe954
 versionName=0.1.0
 versionCode=1
-ciRunId=32801432089
+ciRunId=32801526278
 ciJob=build
 tests=:app:testDebugUnitTest success
 build=:app:assembleRelease success
